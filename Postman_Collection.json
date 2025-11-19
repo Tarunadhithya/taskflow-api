@@ -1,0 +1,57 @@
+{
+  "info": {
+    "name": "TaskFlow API Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Complete API test suite for TaskFlow API - Node.js/Express backend"
+  },
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:5000/api/tasks"}
+  ],
+  "item": [
+    {
+      "name": "Get All Tasks",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}"
+      }
+    },
+    {
+      "name": "Create Task",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": "{{baseUrl}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"text\":\"Complete Task 3\",\"completed\":false}"
+        }
+      }
+    },
+    {
+      "name": "Get Single Task",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/1"
+      }
+    },
+    {
+      "name": "Update Task",
+      "request": {
+        "method": "PUT",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": "{{baseUrl}}/1",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"text\":\"Updated task\",\"completed\":true}"
+        }
+      }
+    },
+    {
+      "name": "Delete Task",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/1"
+      }
+    }
+  ]
+}
