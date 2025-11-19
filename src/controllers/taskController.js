@@ -1,202 +1,211 @@
-// ========================================
-// Task Controller - Business Logic
-// ========================================
+// ==========================================
+// Task Controller - MongoDB/Mongoose Version
+// ==========================================
 
-// In-memory data store (will be replaced with database in Task 4)
-let tasks = [];
-let currentId = 1;
+import Task from '../models/Task.js';
+import mongoose from 'mongoose';
 
-// Utility function to find task by ID
-const findTaskById = (id) => tasks.find(task => task.id === id);
-const findTaskIndex = (id) => tasks.findIndex(task => task.id === id);
-
-// ========================================
+// ==========================================
 // GET /api/tasks - Get all tasks
-// ========================================
-export const getTasks = (req, res) => {
-    try {
-        res.status(200).json({
-            success: true,
-            count: tasks.length,
-            data: tasks
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: 'Server Error',
-            message: error.message
-        });
-    }
+// ==========================================
+
+export const getTasks = async (req, res) => {
+  try {
+    const tasks = await Task.find().sort({ createdAt: -1 });
+    res.status(200).json({
+      success: true,
+      count: tasks.length,
+      data: tasks
+    });
+  } catch (error) {
+    console.error('Error fetching tasks:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while fetching tasks'
+    });
+  }
 };
 
-// ========================================
+// ==========================================
 // GET /api/tasks/:id - Get single task
-// ========================================
-export const getTask = (req, res) => {
-    try {
-        const id = parseInt(req.params.id);
-        const task = findTaskById(id);
+// ==========================================
 
-        if (!task) {
-            return res.status(404).json({
-                success: false,
-                error: 'Not Found',
-                message: `Task with id ${id} not found`
-            });
-        }
-
-        res.status(200).json({
-            success: true,
-            data: task
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: 'Server Error',
-            message: error.message
-        });
+export const getTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid task ID format'
+      });
     }
+
+    const task = await Task.findById(id);
+    
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        error: 'Task not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: task
+    });
+  } catch (error) {
+    console.error('Error fetching task:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while fetching task'
+    });
+  }
 };
 
-// ========================================
+// ==========================================
 // POST /api/tasks - Create new task
-// ========================================
-export const createTask = (req, res) => {
-    try {
-        const { text } = req.body;
+// ==========================================
 
-        // Validation
-        if (!text || text.trim() === '') {
-            return res.status(400).json({
-                success: false,
-                error: 'Validation Error',
-                message: 'Task text is required'
-            });
-        }
+export const createTask = async (req, res) => {
+  try {
+    const { text } = req.body;
 
-        if (text.length > 200) {
-            return res.status(400).json({
-                success: false,
-                error: 'Validation Error',
-                message: 'Task text must be 200 characters or less'
-            });
-        }
-
-        // Create new task
-        const newTask = {
-            id: currentId++,
-            text: text.trim(),
-            completed: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-
-        tasks.push(newTask);
-
-        res.status(201).json({
-            success: true,
-            message: 'Task created successfully',
-            data: newTask
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: 'Server Error',
-            message: error.message
-        });
+    // Validate input
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Task text is required'
+      });
     }
+
+    const task = await Task.create({
+      text: text.trim(),
+      completed: false
+    });
+
+    res.status(201).json({
+      success: true,
+      data: task
+    });
+  } catch (error) {
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        error: errors.join(', ')
+      });
+    }
+
+    console.error('Error creating task:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while creating task'
+    });
+  }
 };
 
-// ========================================
+// ==========================================
 // PUT /api/tasks/:id - Update task
-// ========================================
-export const updateTask = (req, res) => {
-    try {
-        const id = parseInt(req.params.id);
-        const taskIndex = findTaskIndex(id);
+// ==========================================
 
-        if (taskIndex === -1) {
-            return res.status(404).json({
-                success: false,
-                error: 'Not Found',
-                message: `Task with id ${id} not found`
-            });
-        }
+export const updateTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { text, completed } = req.body;
 
-        const { text, completed } = req.body;
-
-        // Validation
-        if (text !== undefined) {
-            if (text.trim() === '') {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Validation Error',
-                    message: 'Task text cannot be empty'
-                });
-            }
-            if (text.length > 200) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Validation Error',
-                    message: 'Task text must be 200 characters or less'
-                });
-            }
-        }
-
-        // Update task
-        tasks[taskIndex] = {
-            ...tasks[taskIndex],
-            text: text !== undefined ? text.trim() : tasks[taskIndex].text,
-            completed: completed !== undefined ? completed : tasks[taskIndex].completed,
-            updatedAt: new Date().toISOString()
-        };
-
-        res.status(200).json({
-            success: true,
-            message: 'Task updated successfully',
-            data: tasks[taskIndex]
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: 'Server Error',
-            message: error.message
-        });
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid task ID format'
+      });
     }
+
+    // Build update object
+    const updateData = {};
+    if (text !== undefined) updateData.text = text.trim();
+    if (completed !== undefined) updateData.completed = completed;
+
+    const task = await Task.findByIdAndUpdate(
+      id,
+      updateData,
+      {
+        new: true,
+        runValidators: true
+      }
+    );
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        error: 'Task not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: task
+    });
+  } catch (error) {
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        error: errors.join(', ')
+      });
+    }
+
+    // Handle cast errors
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid data format'
+      });
+    }
+
+    console.error('Error updating task:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while updating task'
+    });
+  }
 };
 
-// ========================================
+// ==========================================
 // DELETE /api/tasks/:id - Delete task
-// ========================================
-export const deleteTask = (req, res) => {
-    try {
-        const id = parseInt(req.params.id);
-        const initialLength = tasks.length;
-        
-        tasks = tasks.filter(task => task.id !== id);
+// ==========================================
 
-        if (tasks.length === initialLength) {
-            return res.status(404).json({
-                success: false,
-                error: 'Not Found',
-                message: `Task with id ${id} not found`
-            });
-        }
+export const deleteTask = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-        res.status(204).end();
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: 'Server Error',
-            message: error.message
-        });
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid task ID format'
+      });
     }
-};
 
-// ========================================
-// Helper function to reset tasks (for testing)
-// ========================================
-export const resetTasks = () => {
-    tasks = [];
-    currentId = 1;
+    const task = await Task.findByIdAndDelete(id);
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        error: 'Task not found'
+      });
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while deleting task'
+    });
+  }
 };
